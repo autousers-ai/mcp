@@ -1,0 +1,79 @@
+{
+  "name": "@autousers/mcp",
+  "version": "0.8.12",
+  "description": "Official MCP server for Autousers — UX evaluation, calibrated AI personas, side-by-side design review.",
+  "license": "MIT",
+  "homepage": "https://autousers.ai/help/mcp",
+  "bugs": {
+    "url": "https://autousers.ai/contact",
+    "email": "support@autousers.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/autousers-ai/mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "autousers",
+    "ux-research",
+    "evaluation",
+    "design-review",
+    "ai-personas"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server-factory": {
+      "types": "./dist/server-factory.d.ts",
+      "default": "./dist/server-factory.js"
+    },
+    "./request-context": {
+      "types": "./dist/lib/request-context.d.ts",
+      "default": "./dist/lib/request-context.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "mcp": "./dist/index.js",
+    "autousers-mcp": "./dist/index.js",
+    "autousers-mcp-doctor": "./dist/commands/doctor.js",
+    "autousers-mcp-install-skill": "./dist/commands/install-skill.js"
+  },
+  "files": [
+    "dist",
+    "skill",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "prebuild": "rm -rf dist",
+    "build": "tsc && chmod +x dist/index.js dist/commands/doctor.js dist/commands/install-skill.js",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "skill:zip": "cd skill && zip -r ../dist/autousers-skill.zip autousers -x '*.DS_Store'",
+    "prepublishOnly": "npm run build && npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.0"
+  }
+}

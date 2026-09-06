@@ -1,0 +1,137 @@
+# This workflow lives in the PUBLIC source repo `autousers-ai/mcp`. It is
+# mirrored here from the private `darrenhead/autousers` monorepo by the
+# `mirror-mcp.yml` workflow (which subtree-splits `mcp/` and force-pushes
+# it as the root of this repo). DIRECT EDITS HERE WILL BE FORCE-OVERWRITTEN
+# on the next mirror run — make changes in the monorepo at
+# `mcp/.github/workflows/publish-mcp.yml` and let the mirror propagate.
+#
+# Required GitHub repo secrets (on autousers-ai/mcp):
+#   NPM_TOKEN — npm Granular Access Token, type Automation, scope @autousers,
+#               permission read+write, Bypass 2FA enabled (npm 2FA tokens
+#               for CI MUST tick this or `npm publish` 403s).
+#
+# Trigger a release: from inside the monorepo, run
+#   `git tag mcp-v0.8.11 && git push --tags`
+# The mirror workflow forwards the tag (with the rewritten subtree-split
+# SHA) to autousers-ai/mcp, this workflow fires on the tag, runs
+# `npm publish --access public --provenance`, and the package lands on
+# npmjs.com with a verified-provenance attestation.
+
+name: Publish MCP
+
+on:
+  push:
+    tags:
+      - "mcp-v*"
+
+# Only one publish run per tag may be in flight; never cancel a publish mid-flight.
+concurrency:
+  group: publish-mcp-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # required to attach skill zip to the GitHub release
+  id-token: write # required for npm provenance OIDC attestation
+
+jobs:
+  verify:
+    name: Verify package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify tag matches package.json version
+        run: |
+          set -euo pipefail
+          TAG_REF="${GITHUB_REF##refs/tags/}"
+          TAG_VERSION="${TAG_REF#mcp-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "Tag ref:        ${TAG_REF}"
+          echo "Tag version:    ${TAG_VERSION}"
+          echo "Package version:${PKG_VERSION}"
+          if [ "${TAG_VERSION}" != "${PKG_VERSION}" ]; then
+            echo "::error::Tag version (${TAG_VERSION}) does not match package.json version (${PKG_VERSION}). Aborting publish."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack dry-run (audit would-be-published files)
+        run: npm pack --dry-run
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify tag matches package.json version
+        run: |
+          set -euo pipefail
+          TAG_REF="${GITHUB_REF##refs/tags/}"
+          TAG_VERSION="${TAG_REF#mcp-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "Tag ref:        ${TAG_REF}"
+          echo "Tag version:    ${TAG_VERSION}"
+          echo "Package version:${PKG_VERSION}"
+          if [ "${TAG_VERSION}" != "${PKG_VERSION}" ]; then
+            echo "::error::Tag version (${TAG_VERSION}) does not match package.json version (${PKG_VERSION}). Aborting publish."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        # Provenance attestation works now that this workflow runs from the
+        # PUBLIC source repo (autousers-ai/mcp). The npm sigstore verifier
+        # rejects `--provenance` from private repos with "Unsupported GitHub
+        # Actions source repository visibility: private" — that constraint
+        # is gone here.
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Build the standalone Skill zip and attach it to the GitHub release so
+      # users on Claude.ai (zip upload) and the Claude API (Skills API) can grab
+      # it without going through npm. The same files are also bundled inside
+      # the npm tarball at node_modules/@autousers/mcp/skill/autousers/, which
+      # is what `autousers-mcp install-skill` copies for Claude Code users.
+      - name: Build Skill zip
+        run: npm run skill:zip
+
+      - name: Attach Skill zip to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/autousers-skill.zip
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

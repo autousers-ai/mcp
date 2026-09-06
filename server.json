@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "ai.autousers/mcp",
+  "description": "Evaluate UX with AI personas and human raters — directly from chat. List/create/inspect Autousers evaluations, fetch ratings, manage templates, run autouser personas, share review links.",
+  "version": "0.8.3",
+  "websiteUrl": "https://autousers.ai",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@autousers/mcp",
+      "version": "0.8.3",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "AUTOUSERS_API_KEY",
+          "description": "Required. Mint at https://app.autousers.ai/settings/api-keys (format ak_live_*).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "AUTOUSERS_API_BASE",
+          "description": "Override the API base URL. Defaults to https://app.autousers.ai. Set to http://localhost:3000 for local development.",
+          "isRequired": false,
+          "default": "https://app.autousers.ai"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.autousers.ai/mcp"
+    }
+  ]
+}
